@@ -359,6 +359,9 @@ All logging functions stop working.  Do not alter the Logging classes
 (for example, by changing the config file and use Log4perl's
 C<init_and_watch> functionality) after this call has been made.
 
+This will also suppress logging for any new loggers that are created
+after C<suppress_logging> is called.
+
 This function will be effectively a no-op if the environmental variable
 C<NO_SUPPRESS_LOGGING> is set to a true value (so if your code is
 behaving weirdly you can turn all the logging back on from the command
@@ -379,6 +382,16 @@ sub suppress_logging
   # tell this to ignore everything.
    foreach (values %$Log::Log4perl::Logger::LOGGERS_BY_NAME)
     { bless $_, $class->ignore_all_class }
+
+  # make sure all newly-created loggers are also suppressed
+  {
+    no strict 'refs';
+    my $prev = Log::Log4perl::Logger->can('_new');
+    *Log::Log4perl::Logger::_new = sub {
+        my $logger = $prev->(@_);
+        return bless $logger, $class->ignore_all_class;
+    };
+  }
 }
 
 =head2 Selectively Ignoring Logging Messages By Priority
